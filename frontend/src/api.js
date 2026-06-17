@@ -1,7 +1,22 @@
 import axios from 'axios';
 
-// In production (Vercel), set VITE_API_URL to your Render backend URL
-// e.g., https://proconverterbd-api.onrender.com
+// ─── IMPORTANT: Vercel + Render Deployment ─────────────────────────────
+//
+// The frontend (Vercel) calls the backend (Render) API via VITE_API_URL.
+//
+// ⚠️  If VITE_API_URL is NOT set in Vercel Dashboard → Settings →
+//     Environment Variables, the fallback is '' (empty string), which
+//     means ALL API calls go to https://nl-nazmul-chowdhury.vercel.app/api/...
+//     — your own Vercel domain — NOT the Render backend! This causes
+//     500 errors and the "All Tools" page to appear empty.
+//
+// ✅  SOLUTION: Go to https://vercel.com → Your Project → Settings →
+//     Environment Variables → Add VITE_API_URL with value:
+//       https://proconverterbd-api.onrender.com
+//
+//     Then Redeploy or Vercel will auto-deploy on the next push to GitHub.
+//
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 const api = axios.create({
@@ -10,7 +25,35 @@ const api = axios.create({
     'Accept': 'application/json',
   },
   withCredentials: true,
+  // 30-second timeout for all requests
+  timeout: 30000,
 });
+
+// ─── Response interceptor for better error handling ───────────────────
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response) {
+      // Server responded with an error status
+      console.error(
+        `API Error [${error.response.status}]:`,
+        error.response.config?.url,
+        error.response.data
+      );
+    } else if (error.request) {
+      // Request was made but no response received (CORS / network / wrong URL)
+      console.error(
+        'API Network Error: No response received.',
+        'Check that VITE_API_URL is set correctly.',
+        `Current API_BASE_URL: "${API_BASE_URL}"`,
+        error.message
+      );
+    } else {
+      console.error('API Setup Error:', error.message);
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Add CSRF token to unsafe requests for session-based auth
 api.interceptors.request.use((config) => {

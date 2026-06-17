@@ -88,18 +88,36 @@ WSGI_APPLICATION = 'proconverterbd.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 # Uses DATABASE_URL environment variable (PostgreSQL) or falls back to SQLite
+#
+# ⚠️  Render Setup: Go to Render Dashboard → Your Service → Environment
+#     → Add DATABASE_URL (PostgreSQL connection string from Supabase/Neon)
+#     → Add DJANGO_SECRET_KEY (or let Render auto-generate)
+#     → Set DJANGO_DEBUG=False, SESSION_COOKIE_SECURE=True, etc.
+#
+# ⚠️  If DATABASE_URL is missing OR invalid, the app will use SQLite
+#     which does NOT persist data across Render deploys!
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
 if DATABASE_URL:
-    DATABASES = {
-        'default': dj_database_url.config(
-            default=DATABASE_URL,
-            conn_max_age=600,
-            conn_health_checks=True,
-        )
-    }
+    try:
+        DATABASES = {
+            'default': dj_database_url.config(
+                default=DATABASE_URL,
+                conn_max_age=600,
+                conn_health_checks=True,
+            )
+        }
+    except Exception as e:
+        print(f"[WARNING] Invalid DATABASE_URL: {e}. Falling back to SQLite. Data will NOT persist across deploys!")
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
+            }
+        }
 else:
+    print("[WARNING] DATABASE_URL not set. Using SQLite. Data will NOT persist across deploys! Set DATABASE_URL in Render Dashboard.")
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',

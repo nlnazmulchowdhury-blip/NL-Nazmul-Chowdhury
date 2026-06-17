@@ -16,6 +16,10 @@ def process_conversion(tool_slug, uploaded_file, options=None):
     options = options or {}
     handlers = {
         "image-to-jpg": convert_image_to_jpg,
+        "image-to-png": convert_image_to_png,
+        "image-to-webp": convert_image_to_webp,
+        "resize-image": resize_image,
+        "image-to-icon": convert_image_to_icon,
         "background-remove": remove_background,
         "pdf-to-jpg": convert_pdf_to_jpg,
         "compress-image": compress_image,
@@ -433,6 +437,161 @@ def format_json(uploaded_file, options=None):
         "keys_count": len(parsed) if isinstance(parsed, dict) else None,
         "items_count": len(parsed) if isinstance(parsed, list) else None,
         "formatted_preview": formatted[:100000],
+    }
+
+
+def convert_image_to_png(uploaded_file, options=None):
+    """Convert any image to PNG format with transparency support."""
+    img = Image.open(uploaded_file)
+    
+    # Preserve RGBA if already present
+    if img.mode not in ("RGBA", "RGB", "P", "LA"):
+        img = img.convert("RGBA")
+    elif img.mode == "P" or img.mode == "LA":
+        img = img.convert("RGBA")
+    
+    output = io.BytesIO()
+    img.save(output, format="PNG", optimize=True)
+    
+    base_name = Path(uploaded_file.name).stem
+    output_name = f"{base_name}.png"
+    
+    return ContentFile(output.getvalue()), output_name, {
+        "original_format": uploaded_file.content_type or "image",
+        "width": img.width,
+        "height": img.height,
+        "size_bytes": output.tell(),
+        "has_transparency": img.mode == "RGBA",
+    }
+
+
+def convert_image_to_webp(uploaded_file, options=None):
+    """Convert any image to WEBP format for better web performance."""
+    img = Image.open(uploaded_file)
+    
+    quality = options.get("quality", 80)
+    
+    # WEBP supports transparency, so preserve RGBA
+    if img.mode not in ("RGBA", "RGB", "P"):
+        img = img.convert("RGBA")
+    elif img.mode == "P":
+        img = img.convert("RGBA")
+    
+    output = io.BytesIO()
+    img.save(output, format="WEBP", quality=quality, optimize=True)
+    
+    base_name = Path(uploaded_file.name).stem
+    output_name = f"{base_name}.webp"
+    
+    return ContentFile(output.getvalue()), output_name, {
+        "original_format": uploaded_file.content_type or "image",
+        "width": img.width,
+        "height": img.height,
+        "size_bytes": output.tell(),
+        "quality": quality,
+    }
+
+
+def resize_image(uploaded_file, options=None):
+    """Resize images to exact dimensions or scale by percentage."""
+    img = Image.open(uploaded_file)
+    orig_w, orig_h = img.size
+    
+    width = options.get("width")
+    height = options.get("height")
+    percentage = options.get("percentage")
+    maintain_aspect = options.get("maintain_aspect", True)
+    
+    if percentage:
+        # Scale by percentage
+        factor = float(percentage) / 100
+        new_w = max(1, int(orig_w * factor))
+        new_h = max(1, int(orig_h * factor))
+    elif width and height:
+        new_w = int(width)
+        new_h = int(height)
+        if maintain_aspect:
+            # Fit within given dimensions maintaining aspect ratio
+            img.thumbnail((new_w, new_h), Image.LANCZOS)
+            new_w, new_h = img.size
+        else:
+            img = img.resize((new_w, new_h), Image.LANCZOS)
+    elif width:
+        # Width specified, height auto
+        ratio = int(width) / orig_w
+        new_w = int(width)
+        new_h = max(1, int(orig_h * ratio))
+        img = img.resize((new_w, new_h), Image.LANCZOS)
+    elif height:
+        # Height specified, width auto
+        ratio = int(height) / orig_h
+        new_h = int(height)
+        new_w = max(1, int(orig_w * ratio))
+        img = img.resize((new_w, new_h), Image.LANCZOS)
+    else:
+        # Default: scale to 50%
+        new_w = max(1, orig_w // 2)
+        new_h = max(1, orig_h // 2)
+        img = img.resize((new_w, new_h), Image.LANCZOS)
+    
+    # Preserve original mode
+    if img.mode in ("RGBA", "P"):
+        img = img.convert("RGBA")
+    output_format = options.get("output_format", "PNG")
+    
+    output = io.BytesIO()
+    save_kwargs = {"format": output_format, "optimize": True}
+    if output_format.upper() in ("JPEG", "JPG"):
+        if img.mode == "RGBA":
+            bg = Image.new("RGB", img.size, (255, 255, 255))
+            bg.paste(img, mask=img.split()[3])
+            img = bg
+        save_kwargs["quality"] = options.get("quality", 85)
+    img.save(output, **save_kwargs)
+    
+    ext = output_format.lower().replace("jpeg", "jpg")
+    base_name = Path(uploaded_file.name).stem
+    output_name = f"{base_name}_resized.{ext}"
+    
+    return ContentFile(output.getvalue()), output_name, {
+        "original_format": uploaded_file.content_type or "image",
+        "original_width": orig_w,
+        "original_height": orig_h,
+        "width": new_w,
+        "height": new_h,
+        "percentage": percentage or round((new_w / orig_w) * 100, 1),
+        "size_bytes": output.tell(),
+    }
+
+
+def convert_image_to_icon(uploaded_file, options=None):
+    """Convert images to ICO icon format."""
+    img = Image.open(uploaded_file)
+    
+    # ICO format typically uses square sizes
+    sizes = options.get("sizes", [16, 32, 48, 64, 128, 256])
+    
+    # Convert to RGBA for transparency support
+    if img.mode != "RGBA":
+        img = img.convert("RGBA")
+    
+    # Resize to the largest requested size first
+    max_size = max(sizes)
+    if img.width > max_size or img.height > max_size:
+        img.thumbnail((max_size, max_size), Image.LANCZOS)
+    
+    output = io.BytesIO()
+    img.save(output, format="ICO", sizes=[(s, s) for s in sizes if s <= max(img.width, img.height)])
+    
+    base_name = Path(uploaded_file.name).stem
+    output_name = f"{base_name}.ico"
+    
+    return ContentFile(output.getvalue()), output_name, {
+        "original_format": uploaded_file.content_type or "image",
+        "original_width": img.width,
+        "original_height": img.height,
+        "sizes": [s for s in sizes if s <= max(img.width, img.height)],
+        "size_bytes": output.tell(),
     }
 
 

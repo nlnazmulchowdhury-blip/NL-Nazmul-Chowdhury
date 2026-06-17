@@ -4,7 +4,7 @@ import {
   Upload, Download, Loader2, CheckCircle2, XCircle, FileText,
   Image as ImageIcon, QrCode, FileDown, Eraser, Zap, ArrowLeft,
   AlertCircle, Info, Crop, Braces, Shield, Sparkles, Palette,
-  PictureInPicture2, Maximize2, ZoomIn
+  PictureInPicture2, Maximize2, ZoomIn, Globe, Frame
 } from 'lucide-react';
 import { getTool, convertFile } from '../api';
 import AdBanner from '../components/AdBanner';
@@ -12,6 +12,10 @@ import MyBidAdSlot from '../components/MyBidAdSlot';
 import {
   imageToJpg,
   imageToJpgFFmpeg,
+  imageToPng,
+  imageToWebp,
+  resizeImage,
+  imageToIcon,
   compressImage,
   cropImage,
   generateQRCode,
@@ -27,6 +31,10 @@ import {
 
 const toolIcons = {
   'image-to-jpg': ImageIcon,
+  'image-to-png': ImageIcon,
+  'image-to-webp': Globe,
+  'resize-image': Maximize2,
+  'image-to-icon': Frame,
   'background-remove': Eraser,
   'compress-image': Zap,
   'qr-generator': QrCode,
@@ -52,6 +60,10 @@ export default function ToolPage() {
   const [cropWidth, setCropWidth] = useState('');
   const [cropHeight, setCropHeight] = useState('');
   const [selectedAspect, setSelectedAspect] = useState('1:1');
+  const [resizeWidth, setResizeWidth] = useState('');
+  const [resizeHeight, setResizeHeight] = useState('');
+  const [resizePercentage, setResizePercentage] = useState('50');
+  const [resizeMode, setResizeMode] = useState('percentage'); // 'percentage' | 'dimensions'
   const [jsonInput, setJsonInput] = useState('');
   const [jsonMode, setJsonMode] = useState('format');
   const [formattedOutput, setFormattedOutput] = useState('');
@@ -645,6 +657,28 @@ export default function ToolPage() {
           output = await imageToJpgFFmpeg(file);
           break;
         }
+        case 'image-to-png': {
+          output = await imageToPng(file);
+          break;
+        }
+        case 'image-to-webp': {
+          output = await imageToWebp(file, 0.8);
+          break;
+        }
+        case 'resize-image': {
+          const options = {};
+          if (resizePercentage) {
+            options.percentage = parseInt(resizePercentage);
+          }
+          if (resizeWidth) options.width = parseInt(resizeWidth);
+          if (resizeHeight) options.height = parseInt(resizeHeight);
+          output = await resizeImage(file, options);
+          break;
+        }
+        case 'image-to-icon': {
+          output = await imageToIcon(file);
+          break;
+        }
         case 'compress-image': {
           output = await compressImage(file, 0.7);
           break;
@@ -912,6 +946,10 @@ export default function ToolPage() {
     setQrText('');
     setJsonInput('');
     setFormattedOutput('');
+    setResizeWidth('');
+    setResizeHeight('');
+    setResizePercentage('50');
+    setResizeMode('percentage');
     setError(null);
     setResultPreviewUrl(null);
     setResultBlob(null);
@@ -1970,6 +2008,99 @@ export default function ToolPage() {
                   </div>
                 )}
               </div>
+
+              {/* Resize Image Controls */}
+              {slug === 'resize-image' && file && (
+                <div className="mt-6 p-4 bg-gray-50/60 rounded-xl border border-gray-100">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Maximize2 size={16} className="text-indigo-500" />
+                    <span className="text-sm font-semibold text-gray-700">Resize Settings</span>
+                  </div>
+
+                  {/* Mode Toggle */}
+                  <div className="flex gap-2 mb-4">
+                    <button
+                      type="button"
+                      onClick={() => setResizeMode('percentage')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        resizeMode === 'percentage'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'bg-white text-gray-600 border border-gray-200 hover:border-indigo-300'
+                      }`}
+                    >
+                      By Percentage
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setResizeMode('dimensions')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        resizeMode === 'dimensions'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'bg-white text-gray-600 border border-gray-200 hover:border-indigo-300'
+                      }`}
+                    >
+                      Exact Dimensions
+                    </button>
+                  </div>
+
+                  {resizeMode === 'percentage' ? (
+                    <div>
+                      <label className="text-xs font-medium text-gray-500 mb-2 block">Scale Percentage</label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="range"
+                          min="10"
+                          max="200"
+                          value={resizePercentage || 50}
+                          onChange={(e) => setResizePercentage(e.target.value)}
+                          className="flex-1 h-1.5 bg-gray-200 rounded-full appearance-none cursor-pointer accent-indigo-600"
+                        />
+                        <span className="text-sm font-semibold text-indigo-600 min-w-[3rem] text-center">
+                          {resizePercentage || 50}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-[10px] text-gray-400 mt-1 px-1">
+                        <span>10%</span>
+                        <span>50%</span>
+                        <span>100%</span>
+                        <span>200%</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 mb-1 block">Width (px)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={resizeWidth}
+                          onChange={(e) => setResizeWidth(e.target.value)}
+                          placeholder="e.g. 800"
+                          className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 mb-1 block">Height (px)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={resizeHeight}
+                          onChange={(e) => setResizeHeight(e.target.value)}
+                          placeholder="e.g. 600"
+                          className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none text-sm"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {file && (
+                    <div className="mt-3 p-2.5 bg-indigo-50/50 rounded-xl border border-indigo-100/50">
+                      <p className="text-[11px] text-indigo-500 font-medium">
+                        💡 Leave a field empty to auto-calculate based on aspect ratio
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Image Cropper Controls */}
               {slug === 'image-cropper' && file && (

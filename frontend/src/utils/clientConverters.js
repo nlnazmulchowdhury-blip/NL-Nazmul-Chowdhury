@@ -439,6 +439,126 @@ export async function formatJSON(file, text, mode = 'format', indent = 2) {
   };
 }
 
+// ─── Image to PNG ───────────────────────────────────────────────────────
+
+export async function imageToPng(file) {
+  const img = await loadImage(file);
+  const canvas = document.createElement('canvas');
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+
+  const blob = await new Promise((resolve) =>
+    canvas.toBlob(resolve, 'image/png')
+  );
+  const name = file.name.replace(/\.[^.]+$/, '') + '.png';
+
+  return {
+    blob,
+    filename: name,
+    meta: { width: img.naturalWidth, height: img.naturalHeight, size_bytes: blob.size },
+  };
+}
+
+// ─── Image to WEBP ───────────────────────────────────────────────────────
+
+export async function imageToWebp(file, quality = 0.8) {
+  const img = await loadImage(file);
+  const canvas = document.createElement('canvas');
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+
+  const blob = await new Promise((resolve) =>
+    canvas.toBlob(resolve, 'image/webp', quality)
+  );
+  const name = file.name.replace(/\.[^.]+$/, '') + '.webp';
+
+  return {
+    blob,
+    filename: name,
+    meta: { width: img.naturalWidth, height: img.naturalHeight, size_bytes: blob.size, quality: Math.round(quality * 100) },
+  };
+}
+
+// ─── Resize Image ────────────────────────────────────────────────────────
+
+export async function resizeImage(file, options = {}) {
+  const img = await loadImage(file);
+  let { width, height, percentage } = options;
+  const origW = img.naturalWidth;
+  const origH = img.naturalHeight;
+
+  if (percentage) {
+    const factor = percentage / 100;
+    width = Math.max(1, Math.round(origW * factor));
+    height = Math.max(1, Math.round(origH * factor));
+  } else if (width && !height) {
+    const ratio = width / origW;
+    height = Math.max(1, Math.round(origH * ratio));
+  } else if (height && !width) {
+    const ratio = height / origH;
+    width = Math.max(1, Math.round(origW * ratio));
+  } else if (!width && !height) {
+    // Default: scale to 50%
+    width = Math.max(1, Math.round(origW / 2));
+    height = Math.max(1, Math.round(origH / 2));
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, width, height);
+
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+  const name = file.name.replace(/\.[^.]+$/, '') + '_resized.png';
+
+  const actualPercentage = Math.round((width / origW) * 100 * 10) / 10;
+
+  return {
+    blob,
+    filename: name,
+    meta: {
+      original_width: origW,
+      original_height: origH,
+      width,
+      height,
+      percentage: actualPercentage,
+      size_bytes: blob.size,
+    },
+  };
+}
+
+// ─── Image to Icon ───────────────────────────────────────────────────────
+
+export async function imageToIcon(file) {
+  const img = await loadImage(file);
+  const size = Math.min(img.naturalWidth, img.naturalHeight, 256);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  // Center-crop to square first
+  const minDim = Math.min(img.naturalWidth, img.naturalHeight);
+  const sx = (img.naturalWidth - minDim) / 2;
+  const sy = (img.naturalHeight - minDim) / 2;
+  ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
+
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+  const name = file.name.replace(/\.[^.]+$/, '') + '.ico';
+
+  return {
+    blob,
+    filename: name,
+    meta: { width: size, height: size, original_size: `${img.naturalWidth}x${img.naturalHeight}`, size_bytes: blob.size },
+  };
+}
+
 // ─── Background Remove ──────────────────────────────────────────────────
 
 export async function removeBackground(file, tolerance = 32) {
