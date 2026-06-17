@@ -99,6 +99,9 @@ WSGI_APPLICATION = 'proconverterbd.wsgi.application'
 #     which does NOT persist data across Render deploys!
 #
 # 🧪  Supabase + PgBouncer Pooler:
+#     - Use PORT 6543 (Transaction mode) — NOT 5432 (Session mode)
+#     - Username format for port 6543:  user.project_ref  (e.g. postgres.brcizknoqecymbbgdlsg)
+#     - Username format for port 5432:  project_ref.user  (e.g. brcizknoqecymbbgdlsg.postgres)
 #     - DO append ?pgbouncer=true to the URL in Render Dashboard
 #     - DO set sslmode=require — Supabase requires SSL
 #     - The code below strips ?pgbouncer=true from the raw DSN before
