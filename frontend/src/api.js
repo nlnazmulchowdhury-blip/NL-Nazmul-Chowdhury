@@ -3,21 +3,16 @@ import axios from 'axios';
 // ─── IMPORTANT: Vercel + Render Deployment ─────────────────────────────
 //
 // The frontend (Vercel) calls the backend (Render) API via VITE_API_URL.
+// The default fallback URL below points to the Render backend.
 //
-// ⚠️  If VITE_API_URL is NOT set in Vercel Dashboard → Settings →
-//     Environment Variables, the fallback is '' (empty string), which
-//     means ALL API calls go to https://nl-nazmul-chowdhury.vercel.app/api/...
-//     — your own Vercel domain — NOT the Render backend! This causes
-//     500 errors and the "All Tools" page to appear empty.
-//
-// ✅  SOLUTION: Go to https://vercel.com → Your Project → Settings →
+// ✅  You can override it in Vercel Dashboard → Settings →
 //     Environment Variables → Add VITE_API_URL with value:
-//       https://proconverterbd-api.onrender.com
+//       https://nl-nazmul-chowdhury.onrender.com
 //
 //     Then Redeploy or Vercel will auto-deploy on the next push to GitHub.
 //
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://nl-nazmul-chowdhury.onrender.com';
 
 const api = axios.create({
   baseURL: `${API_BASE_URL}/api`,
