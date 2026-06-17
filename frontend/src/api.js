@@ -3,16 +3,13 @@ import axios from 'axios';
 // ─── IMPORTANT: Vercel + Render Deployment ─────────────────────────────
 //
 // The frontend (Vercel) calls the backend (Render) API via VITE_API_URL.
-// The default fallback URL below points to the Render backend.
 //
-// ✅  You can override it in Vercel Dashboard → Settings →
-//     Environment Variables → Add VITE_API_URL with value:
-//       https://nl-nazmul-chowdhury.onrender.com
-//
-//     Then Redeploy or Vercel will auto-deploy on the next push to GitHub.
+// ⚠️  LOCAL DEV:  API_BASE_URL = '' (empty) → Vite proxy → local Django
+// ⚠️  PRODUCTION:  API_BASE_URL = 'https://nl-nazmul-chowdhury.onrender.com'
+// ⚠️  OVERRIDE:   Set VITE_API_URL in Vercel Dashboard → Environment Variables
 //
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://nl-nazmul-chowdhury.onrender.com';
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '' : 'https://nl-nazmul-chowdhury.onrender.com');
 
 const api = axios.create({
   baseURL: `${API_BASE_URL}/api`,
