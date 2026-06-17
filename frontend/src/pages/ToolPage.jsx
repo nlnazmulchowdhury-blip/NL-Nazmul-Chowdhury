@@ -2156,7 +2156,7 @@ export default function ToolPage() {
                       </button>
                     </div>
                   </>
-                ) : rewardedState === 'none' ||                 ) : rewardedState === 'none' || rewardedState === 'choosing' ? (
+                ) : rewardedState === 'none' || rewardedState === 'choosing' ? (
                   <>
                     <div className="relative mt-6 mb-6">
                       <div className="absolute inset-0 flex items-center">
@@ -2286,7 +2286,7 @@ export default function ToolPage() {
                     {isJson ? 'Format Another' : 'Convert Another'}
                   </button>
                 </div>
-              )}
+              )) : null}
 
               {/* MyBid Banner Ad — neatly centered below action buttons */}
               <div className="mt-5 flex justify-center">
