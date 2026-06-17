@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 import os
+from urllib.parse import urlparse, urlunparse, parse_qs
 import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -96,18 +97,54 @@ WSGI_APPLICATION = 'proconverterbd.wsgi.application'
 #
 # ⚠️  If DATABASE_URL is missing OR invalid, the app will use SQLite
 #     which does NOT persist data across Render deploys!
+#
+# 🧪  Supabase + PgBouncer Pooler:
+#     - DO append ?pgbouncer=true to the URL in Render Dashboard
+#     - DO set sslmode=require — Supabase requires SSL
+#     - The code below strips ?pgbouncer=true from the DSN before passing
+#       it to psycopg2 (which would reject it as an invalid option),
+#       and instead sets CONN_MAX_AGE=0 + ssl_require=True accordingly.
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
 if DATABASE_URL:
     try:
+        # ── Strip PgBouncer-specific query params from the DSN ────────
+        # psycopg2 rejects ?pgbouncer=true because it's not a valid
+        # PostgreSQL connection option. We parse it out and handle
+        # PgBouncer compatibility via Django settings instead.
+        parsed = urlparse(DATABASE_URL)
+        query_params = parse_qs(parsed.query)
+
+        # Detect if pgbouncer mode is requested
+        is_pgbouncer = query_params.pop('pgbouncer', [None])[0] is not None
+
+        # Rebuild the URL with remaining query params (e.g. sslmode)
+        # If sslmode is not already present, add it for Supabase
+        remaining_query = '&'.join(
+            f'{k}={v[0]}' for k, v in query_params.items()
+        )
+        if 'sslmode' not in query_params:
+            remaining_query = ('&' if remaining_query else '') + 'sslmode=require'
+        clean_url = urlunparse((
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            remaining_query or None,
+            parsed.fragment,
+        ))
+
         DATABASES = {
             'default': dj_database_url.config(
-                default=DATABASE_URL,
-                conn_max_age=600,
+                default=clean_url,
+                conn_max_age=0 if is_pgbouncer else 600,
                 conn_health_checks=True,
+                ssl_require=True,
             )
         }
+        if is_pgbouncer:
+            print("[INFO] PgBouncer mode detected — CONN_MAX_AGE set to 0 for pooler compatibility.")
     except Exception as e:
         print(f"[WARNING] Invalid DATABASE_URL: {e}. Falling back to SQLite. Data will NOT persist across deploys!")
         DATABASES = {
