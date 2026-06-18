@@ -1,253 +1,215 @@
-import axios from 'axios';
+/**
+ * Frontend API Adapter — Pro Converter BD
+ *
+ * Points to the Next.js API routes running on the same origin.
+ * Replaces the previous Django + axios-based adapter.
+ *
+ * ✅ /api/categories     — GET categories with embedded tools
+ * ✅ /api/tools/:slug    — GET single tool detail with category info
+ * 🔄 /api/tools          — derived from categories response (flat tool list)
+ * ⏳ convert / admin / 2FA — not yet migrated to Next.js
+ */
 
-// ─── IMPORTANT: Vercel + Render Deployment ─────────────────────────────
-//
-// The frontend (Vercel) calls the backend (Render) API via VITE_API_URL.
-//
-// ⚠️  LOCAL DEV:  API_BASE_URL = '' (empty) → Vite proxy → local Django
-// ⚠️  PRODUCTION:  API_BASE_URL = 'https://nl-nazmul-chowdhury.onrender.com'
-// ⚠️  OVERRIDE:   Set VITE_API_URL in Vercel Dashboard → Environment Variables
-//
+// ─── Helper: fetch wrapper ────────────────────────────────────────────
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '' : 'https://nl-nazmul-chowdhury.onrender.com');
+async function apiFetch(url, options = {}) {
+  const res = await fetch(url, {
+    headers: { Accept: "application/json", ...options.headers },
+    ...options,
+  });
 
-const api = axios.create({
-  baseURL: `${API_BASE_URL}/api`,
-  headers: {
-    'Accept': 'application/json',
-  },
-  withCredentials: true,
-  // 30-second timeout for all requests
-  timeout: 30000,
-});
-
-// ─── Response interceptor for better error handling ───────────────────
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response) {
-      // Server responded with an error status
-      console.error(
-        `API Error [${error.response.status}]:`,
-        error.response.config?.url,
-        error.response.data
-      );
-    } else if (error.request) {
-      // Request was made but no response received (CORS / network / wrong URL)
-      console.error(
-        'API Network Error: No response received.',
-        'Check that VITE_API_URL is set correctly.',
-        `Current API_BASE_URL: "${API_BASE_URL}"`,
-        error.message
-      );
-    } else {
-      console.error('API Setup Error:', error.message);
-    }
-    return Promise.reject(error);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const err = new Error(body.error || `Request failed (${res.status})`);
+    err.status = res.status;
+    throw err;
   }
-);
 
-// Add CSRF token to unsafe requests for session-based auth
-api.interceptors.request.use((config) => {
-  if (config.method && !['get', 'head', 'options'].includes(config.method.toLowerCase())) {
-    const csrfCookie = document.cookie
-      .split('; ')
-      .find(row => row.startsWith('csrftoken='))
-      ?.split('=')[1];
-    if (csrfCookie) {
-      config.headers['X-CSRFToken'] = csrfCookie;
-    }
-  }
-  return config;
-});
+  // 204 No Content
+  if (res.status === 204) return null;
 
+  return res.json();
+}
+
+// ─── Public API ────────────────────────────────────────────────────────
+
+/**
+ * Fetch all conversion categories with their tools embedded.
+ * GET /api/categories
+ */
 export const getCategories = async () => {
-  const { data } = await api.get('/categories/');
-  return data;
+  return apiFetch("/api/categories");
 };
 
+/**
+ * Fetch tools, optionally filtered by category slug.
+ *
+ * Uses the categories endpoint (which includes embedded tools) and
+ * flattens the tool lists. This avoids needing a separate /api/tools
+ * route for listing, though one can be added later.
+ */
 export const getTools = async (categorySlug = null) => {
-  const params = categorySlug ? { category: categorySlug } : {};
-  const { data } = await api.get('/tools/', { params });
-  return data;
-};
+  const categories = await apiFetch("/api/categories");
 
-export const getTool = async (slug) => {
-  const { data } = await api.get(`/tools/${slug}/`);
-  return data;
-};
+  const allTools = categories.flatMap((cat) =>
+    cat.tools.map((tool) => ({
+      ...tool,
+      category_slug: cat.slug,
+    }))
+  );
 
-export const convertFile = async (toolSlug, file, options = {}) => {
-  const formData = new FormData();
-  formData.append('tool_slug', toolSlug);
-  formData.append('file', file);
-
-  if (Object.keys(options).length > 0) {
-    formData.append('options', JSON.stringify(options));
+  if (categorySlug) {
+    return allTools.filter((t) => t.category_slug === categorySlug);
   }
 
-  const { data } = await api.post('/convert/', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 120000,
-  });
-  return data;
+  return allTools;
 };
 
-export const generateQR = async (text, options = {}) => {
-  const formData = new FormData();
-  formData.append('text', text);
-  Object.entries(options).forEach(([key, value]) => {
-    formData.append(key, value);
-  });
-
-  const { data } = await api.post('/generate-qr/', formData, {
-    timeout: 30000,
-  });
-  return data;
+/**
+ * Fetch a single tool detail by slug, including its category info.
+ * GET /api/tools/:slug
+ */
+export const getTool = async (slug) => {
+  return apiFetch(`/api/tools/${slug}`);
 };
 
-export const formatJSON = async (text, mode = 'format', indent = 2) => {
-  const formData = new FormData();
-  formData.append('text', text);
-  formData.append('mode', mode);
-  formData.append('indent', indent.toString());
+// ─── Conversion / Utility Endpoints (not yet migrated to Next.js) ──────
 
-  const { data } = await api.post('/format-json/', formData, {
-    timeout: 30000,
-  });
-  return data;
+/**
+ * Convert a file using a backend tool (e.g., background-remove).
+ *
+ * ⏳ This endpoint is not yet implemented in Next.js.
+ * Until migration, client-side tools (image-to-jpg, pdf-to-jpg, etc.)
+ * are handled locally via src/utils/clientConverters.js.
+ */
+export const convertFile = async (_toolSlug, _file, _options = {}) => {
+  throw new Error(
+    "Server-side conversion is not yet available in Next.js. " +
+      "For now, client-side conversions (image-to-jpg, pdf-to-jpg, etc.) " +
+      "are handled in-browser via clientConverters.js."
+  );
+};
+
+export const generateQR = async () => {
+  throw new Error(
+    "QR generation endpoint not yet migrated. " +
+      "Use client-side utils/clientConverters.js#generateQRCode instead."
+  );
+};
+
+export const formatJSON = async () => {
+  throw new Error(
+    "JSON formatting endpoint not yet migrated. " +
+      "Use client-side utils/clientConverters.js#formatJSON instead."
+  );
 };
 
 export const getHistory = async () => {
-  const { data } = await api.get('/history/');
-  return data;
+  throw new Error("Conversion history endpoint not yet migrated to Next.js.");
 };
 
-// ─── Admin API ──────────────────────────────────────────────────────────
+// ─── Admin API (not yet migrated to Next.js) ──────────────────────────
 
-export const adminLogin = async (username, password) => {
-  const { data } = await api.post('/admin/login/', { username, password });
-  return data;
+export const adminLogin = async () => {
+  throw new Error("Admin API not yet migrated to Next.js.");
 };
 
 export const adminLogout = async () => {
-  const { data } = await api.post('/admin/logout/');
-  return data;
+  throw new Error("Admin API not yet migrated to Next.js.");
 };
 
 export const adminCheckAuth = async () => {
-  const { data } = await api.get('/admin/check-auth/');
-  return data;
+  throw new Error("Admin API not yet migrated to Next.js.");
 };
 
 export const getAdminDashboard = async () => {
-  const { data } = await api.get('/admin/dashboard/');
-  return data;
+  throw new Error("Admin API not yet migrated to Next.js.");
 };
 
 export const getAdminTools = async () => {
-  const { data } = await api.get('/admin/tools/');
-  return data;
+  throw new Error("Admin API not yet migrated to Next.js.");
 };
 
-export const getAdminTool = async (id) => {
-  const { data } = await api.get(`/admin/tools/${id}/`);
-  return data;
+export const getAdminTool = async () => {
+  throw new Error("Admin API not yet migrated to Next.js.");
 };
 
-export const createAdminTool = async (toolData) => {
-  const { data } = await api.post('/admin/tools/', toolData);
-  return data;
+export const createAdminTool = async () => {
+  throw new Error("Admin API not yet migrated to Next.js.");
 };
 
-export const updateAdminTool = async (id, toolData) => {
-  const { data } = await api.put(`/admin/tools/${id}/`, toolData);
-  return data;
+export const updateAdminTool = async () => {
+  throw new Error("Admin API not yet migrated to Next.js.");
 };
 
-export const deleteAdminTool = async (id) => {
-  await api.delete(`/admin/tools/${id}/`);
+export const deleteAdminTool = async () => {
+  throw new Error("Admin API not yet migrated to Next.js.");
 };
 
 export const getAdminUsers = async () => {
-  const { data } = await api.get('/admin/users/');
-  return data;
+  throw new Error("Admin API not yet migrated to Next.js.");
 };
 
 export const getAdminCategories = async () => {
-  const { data } = await api.get('/admin/categories/');
-  return data;
+  throw new Error("Admin API not yet migrated to Next.js.");
 };
 
-export const createAdminCategory = async (catData) => {
-  const { data } = await api.post('/admin/categories/', catData);
-  return data;
+export const createAdminCategory = async () => {
+  throw new Error("Admin API not yet migrated to Next.js.");
 };
 
-export const updateAdminCategory = async (id, catData) => {
-  const { data } = await api.put(`/admin/categories/${id}/`, catData);
-  return data;
+export const updateAdminCategory = async () => {
+  throw new Error("Admin API not yet migrated to Next.js.");
 };
 
-export const deleteAdminCategory = async (id) => {
-  await api.delete(`/admin/categories/${id}/`);
+export const deleteAdminCategory = async () => {
+  throw new Error("Admin API not yet migrated to Next.js.");
 };
 
 export const getAdminSettings = async () => {
-  const { data } = await api.get('/admin/settings/');
-  return data;
+  throw new Error("Admin API not yet migrated to Next.js.");
 };
 
-export const updateAdminSettings = async (settings) => {
-  const { data } = await api.put('/admin/settings/', settings);
-  return data;
+export const updateAdminSettings = async () => {
+  throw new Error("Admin API not yet migrated to Next.js.");
 };
 
-// ─── 2FA API ────────────────────────────────────────────────────────────
+// ─── 2FA API (not yet migrated to Next.js) ────────────────────────────
 
-export const complete2FALogin = async (tempToken, code) => {
-  const { data } = await api.post('/admin/2fa/complete-login/', { temp_token: tempToken, code });
-  return data;
+export const complete2FALogin = async () => {
+  throw new Error("2FA API not yet migrated to Next.js.");
 };
 
 export const setup2FA = async () => {
-  const { data } = await api.post('/admin/2fa/setup/');
-  return data;
+  throw new Error("2FA API not yet migrated to Next.js.");
 };
 
-export const verify2FA = async (code) => {
-  const { data } = await api.post('/admin/2fa/verify/', { code });
-  return data;
+export const verify2FA = async () => {
+  throw new Error("2FA API not yet migrated to Next.js.");
 };
 
-export const disable2FA = async (code) => {
-  const { data } = await api.post('/admin/2fa/disable/', { code });
-  return data;
+export const disable2FA = async () => {
+  throw new Error("2FA API not yet migrated to Next.js.");
 };
 
 export const get2FAStatus = async () => {
-  const { data } = await api.get('/admin/2fa/status/');
-  return data;
+  throw new Error("2FA API not yet migrated to Next.js.");
 };
 
 export const regenerateBackupCodes = async () => {
-  const { data } = await api.post('/admin/2fa/regenerate-codes/');
-  return data;
+  throw new Error("2FA API not yet migrated to Next.js.");
 };
 
-export const mandatory2FASetup = async (tempToken) => {
-  const { data } = await api.post('/admin/2fa/mandatory-setup/', { temp_token: tempToken });
-  return data;
+export const mandatory2FASetup = async () => {
+  throw new Error("2FA API not yet migrated to Next.js.");
 };
 
-export const mandatory2FAVerify = async (tempToken, code) => {
-  const { data } = await api.post('/admin/2fa/mandatory-verify/', { temp_token: tempToken, code });
-  return data;
+export const mandatory2FAVerify = async () => {
+  throw new Error("2FA API not yet migrated to Next.js.");
 };
 
-export const getAdminConversions = async (params = {}) => {
-  const { data } = await api.get('/admin/conversions/', { params });
-  return data;
+export const getAdminConversions = async () => {
+  throw new Error("Admin API not yet migrated to Next.js.");
 };
 
-export default api;
+export default apiFetch;
