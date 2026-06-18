@@ -12,7 +12,6 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 import os
-import re
 import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -108,55 +107,12 @@ WSGI_APPLICATION = 'proconverterbd.wsgi.application'
 # Leave DATABASE_URL unset → automatically uses SQLite (db.sqlite3).
 # No changes needed to run locally.
 
-DATABASE_URL = os.environ.get('DATABASE_URL')
-
-if DATABASE_URL:
-    try:
-        # ── Strip PgBouncer-specific query params ────────────────────
-        # psycopg2 rejects ?pgbouncer=true (not a valid PostgreSQL option)
-        # This is only used by Supabase pooler URLs.
-        clean_url = re.sub(r'[?&]pgbouncer=[^&]*', '', DATABASE_URL).rstrip('?&') or DATABASE_URL
-
-        # ── Parse the connection string via dj-database-url ───────────
-        # dj-database-url handles PostgreSQL, MySQL, SQLite, etc.
-        # See: https://github.com/jazzband/dj-database-url
-        db_config = dj_database_url.parse(clean_url)
-
-        # ── Connection pool settings ────────────────────────────────
-        # Keep persistent connections alive for 10 minutes,
-        # with health checks to detect stale connections.
-        db_config['CONN_MAX_AGE'] = 600
-        db_config['CONN_HEALTH_CHECKS'] = True
-
-        # ── SSL & timeout ───────────────────────────────────────────
-        # Cloud databases (Supabase, Render, Neon) require SSL.
-        # Connection timeout prevents hanging if DB is paused.
-        db_config.setdefault('OPTIONS', {})
-        db_config['OPTIONS']['sslmode'] = 'require'
-        db_config['OPTIONS']['connect_timeout'] = int(
-            os.environ.get('DB_CONNECT_TIMEOUT', '10')
-        )
-
-        DATABASES = {'default': db_config}
-
-        print(f"[INFO] Using database: {db_config['ENGINE']} — {db_config.get('HOST', 'local')}:{db_config.get('PORT', '')}")
-
-    except Exception as e:
-        print(f"[WARNING] Invalid DATABASE_URL: {e}. Falling back to SQLite. Data will NOT persist across deploys!")
-        DATABASES = {
-            'default': {
-                'ENGINE': 'django.db.backends.sqlite3',
-                'NAME': BASE_DIR / 'db.sqlite3',
-            }
-        }
-else:
-    print("[INFO] DATABASE_URL not set. Using SQLite for local development.")
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
+DATABASES = {
+    'default': dj_database_url.config(
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        conn_max_age=600
+    )
+}
 
 
 # Password validation
