@@ -163,6 +163,12 @@ if DATABASE_URL:
         db_config.setdefault('OPTIONS', {})
         db_config['OPTIONS']['sslmode'] = 'require'
 
+        # Connection timeout (seconds) — fail fast when DB is unreachable/paused
+        # Default 10s. Set e.g. DB_CONNECT_TIMEOUT=5 for faster failures.
+        db_config['OPTIONS']['connect_timeout'] = int(
+            os.environ.get('DB_CONNECT_TIMEOUT', '10')
+        )
+
         DATABASES = {'default': db_config}
 
         if is_pgbouncer:
