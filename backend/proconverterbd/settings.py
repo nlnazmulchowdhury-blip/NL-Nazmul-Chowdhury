@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 import os
 import re
+from urllib.parse import urlparse, urlunparse
 import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -55,10 +56,10 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  # Must be as high as possible — django-cors-headers requirement
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # Whitenoise for static files
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -122,6 +123,32 @@ if DATABASE_URL:
         # Ensure sslmode=require is present for Supabase
         if 'sslmode' not in clean_url.lower():
             clean_url += ('&' if '?' in clean_url else '?') + 'sslmode=require'
+
+        # ── Auto-detect & fix Supabase pooler port/username mismatch ────
+        # If URL uses pooler.supabase.com with user.project_ref format
+        # but port is 5432 (session mode), auto-correct to port 6543
+        # (transaction mode). Session mode expects project_ref.user.
+        parsed = urlparse(clean_url)
+        port = parsed.port
+        username = parsed.username or ''
+        hostname = parsed.hostname or ''
+        if 'pooler.supabase.com' in hostname and '.' in username and port == 5432:
+            new_port = 6543
+            # Replace port in netloc (preserves username:password@host part)
+            old_suffix = f':{port}'
+            if parsed.netloc.endswith(old_suffix):
+                new_netloc = parsed.netloc[:-len(old_suffix)] + f':{new_port}'
+            else:
+                new_netloc = parsed.netloc
+            clean_url = urlunparse((
+                parsed.scheme,
+                new_netloc,
+                parsed.path,
+                parsed.params,
+                parsed.query,
+                parsed.fragment
+            ))
+            print(f"[INFO] Auto-fixed Supabase port: {port} → {new_port} (user.project_ref format requires transaction pooler)")
 
         # Let dj-database-url parse the cleaned connection string
         # Note: parse() only accepts (url, engine) — conn_max_age and
@@ -208,7 +235,7 @@ CORS_ALLOW_CREDENTIALS = True
 # If CORS_ALLOW_ALL_ORIGINS is False, specify allowed origins
 CORS_ALLOWED_ORIGINS = os.environ.get(
     'CORS_ALLOWED_ORIGINS',
-    'http://localhost:3000,http://127.0.0.1:3000'
+    'http://localhost:3000,http://127.0.0.1:3000,https://nl-nazmul-chowdhury.vercel.app'
 ).split(',')
 
 SESSION_COOKIE_SAMESITE = 'Lax'
@@ -222,7 +249,7 @@ CSRF_COOKIE_SECURE = os.environ.get('CSRF_COOKIE_SECURE', 'False').lower() in ('
 
 CSRF_TRUSTED_ORIGINS = os.environ.get(
     'CSRF_TRUSTED_ORIGINS',
-    'http://localhost:3000,http://127.0.0.1:3000'
+    'http://localhost:3000,http://127.0.0.1:3000,https://nl-nazmul-chowdhury.vercel.app'
 ).split(',')
 
 # Security settings for production

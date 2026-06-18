@@ -1,17 +1,37 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Upload, Shield, Zap, Cpu } from 'lucide-react';
+import { ArrowRight, Upload, Shield, Zap, Cpu, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { getCategories } from '../api';
 import CategorySection from '../components/CategorySection';
 import AdBanner from '../components/AdBanner';
 
 export default function HomePage() {
   const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchCategories = () => {
+    setLoading(true);
+    setError(null);
+    getCategories()
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setCategories(data);
+        } else {
+          console.warn('Unexpected API response format:', data);
+          setCategories([]);
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Failed to load categories:', err.message);
+        setError(err.message || 'Failed to load tools. Please try again later.');
+        setLoading(false);
+      });
+  };
 
   useEffect(() => {
-    getCategories()
-      .then(setCategories)
-      .catch(() => {});
+    fetchCategories();
   }, []);
 
   const features = [
@@ -105,9 +125,63 @@ export default function HomePage() {
 
       {/* Category Sections */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 mb-16">
-        {categories.map((category) => (
-          <CategorySection key={category.slug} category={category} />
-        ))}
+        {loading ? (
+          /* Loading skeleton grid */
+          <div className="space-y-10">
+            {[1, 2, 3].map((i) => (
+              <div key={i}>
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gray-100 animate-pulse-subtle" />
+                    <div>
+                      <div className="h-5 w-32 bg-gray-100 rounded animate-pulse-subtle" />
+                      <div className="h-3 w-24 bg-gray-50 rounded mt-1 animate-pulse-subtle" />
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                  {Array.from({ length: 6 }).map((_, j) => (
+                    <div key={j} className="bg-gray-50 rounded-2xl h-32 animate-pulse-subtle" />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : error ? (
+          /* Error state */
+          <div className="text-center py-16">
+            <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-4">
+              <AlertCircle size={28} className="text-red-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Unable to Load Tools</h3>
+            <p className="text-sm text-gray-500 max-w-md mx-auto mb-6">
+              {error}. This might be because the backend is starting up or there's a network issue.
+            </p>
+            <button
+              onClick={fetchCategories}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-indigo-600 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 transition-all"
+            >
+              <RefreshCw size={16} />
+              Try Again
+            </button>
+          </div>
+        ) : categories.length === 0 ? (
+          /* Empty state */
+          <div className="text-center py-16">
+            <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
+              <Zap size={28} className="text-gray-300" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Tools Available Yet</h3>
+            <p className="text-sm text-gray-500 max-w-md mx-auto">
+              Tools are being added. Check back soon or visit the admin panel to add conversion tools.
+            </p>
+          </div>
+        ) : (
+          /* Categories loaded successfully */
+          (categories ?? []).map((category) => (
+            <CategorySection key={category.slug} category={category} />
+          ))
+        )}
       </div>
 
       {/* CTA */}
