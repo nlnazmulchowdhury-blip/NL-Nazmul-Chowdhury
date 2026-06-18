@@ -3,6 +3,7 @@
   "/_not-found/page": "/_not-found",
   "/api/categories/route": "/api/categories",
   "/api/tools/[slug]/route": "/api/tools/[slug]",
+  "/api/tools/route": "/api/tools",
   "/favicon.ico/route": "/favicon.ico",
   "/page": "/"
 }

@@ -42,27 +42,12 @@ export const getCategories = async () => {
 };
 
 /**
- * Fetch tools, optionally filtered by category slug.
- *
- * Uses the categories endpoint (which includes embedded tools) and
- * flattens the tool lists. This avoids needing a separate /api/tools
- * route for listing, though one can be added later.
+ * Fetch all tools as a flat array, optionally filtered by category slug.
+ * GET /api/tools
  */
 export const getTools = async (categorySlug = null) => {
-  const categories = await apiFetch("/api/categories");
-
-  const allTools = categories.flatMap((cat) =>
-    cat.tools.map((tool) => ({
-      ...tool,
-      category_slug: cat.slug,
-    }))
-  );
-
-  if (categorySlug) {
-    return allTools.filter((t) => t.category_slug === categorySlug);
-  }
-
-  return allTools;
+  const params = categorySlug ? `?category=${encodeURIComponent(categorySlug)}` : "";
+  return apiFetch(`/api/tools${params}`);
 };
 
 /**

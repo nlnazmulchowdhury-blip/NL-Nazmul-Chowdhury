@@ -57,6 +57,12 @@
       "namedRegex": "^/api/categories(?:/)?$"
     },
     {
+      "page": "/api/tools",
+      "regex": "^/api/tools(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/tools(?:/)?$"
+    },
+    {
       "page": "/favicon.ico",
       "regex": "^/favicon\\.ico(?:/)?$",
       "routeKeys": {},
