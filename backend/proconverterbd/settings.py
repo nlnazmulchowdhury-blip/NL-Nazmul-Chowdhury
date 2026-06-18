@@ -13,7 +13,6 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 import os
 import re
-from urllib.parse import urlparse, urlunparse
 import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -89,90 +88,57 @@ WSGI_APPLICATION = 'proconverterbd.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-# Uses DATABASE_URL environment variable (PostgreSQL) or falls back to SQLite
 #
-# ⚠️  Render Setup: Go to Render Dashboard → Your Service → Environment
-#     → Add DATABASE_URL (PostgreSQL connection string from Supabase/Neon)
-#     → Add DJANGO_SECRET_KEY (or let Render auto-generate)
-#     → Set DJANGO_DEBUG=False, SESSION_COOKIE_SECURE=True, etc.
+# ─── Production ───────────────────────────────────────────────────────
+# Set DATABASE_URL in Render Dashboard → Environment Variables.
+# Use a PostgreSQL connection string (e.g. from Supabase):
+#   postgresql://user:password@host:port/dbname?sslmode=require
 #
-# ⚠️  If DATABASE_URL is missing OR invalid, the app will use SQLite
-#     which does NOT persist data across Render deploys!
+# For Supabase Transaction Pooler (recommended):
+#   - Port: 6543  (NOT 5432 — that's Session mode)
+#   - Username: postgres.YOUR_PROJECT_REF
+#   - Password from Supabase Dashboard → Settings → Database
+#   - Append ?sslmode=require (required by Supabase)
 #
-# 🧪  Supabase + PgBouncer Pooler:
-#     - Use PORT 6543 (Transaction mode) — NOT 5432 (Session mode)
-#     - Username format for port 6543:  user.project_ref  (e.g. postgres.brcizknoqecymbbgdlsg)
-#     - Username format for port 5432:  project_ref.user  (e.g. brcizknoqecymbbgdlsg.postgres)
-#     - DO append ?pgbouncer=true to the URL in Render Dashboard
-#     - DO set sslmode=require — Supabase requires SSL
-#     - The code below strips ?pgbouncer=true from the raw DSN before
-#       passing it to psycopg2 (which would reject it as an invalid
-#       option), and instead sets CONN_MAX_AGE=0 accordingly.
+# Examples:
+#   DATABASE_URL="postgresql://postgres.abcdefgh:password@aws-0-region.pooler.supabase.com:6543/postgres?sslmode=require"
+#   DATABASE_URL="postgresql://postgres:password@localhost:5432/mydb"
+#
+# ─── Local Development ────────────────────────────────────────────────
+# Leave DATABASE_URL unset → automatically uses SQLite (db.sqlite3).
+# No changes needed to run locally.
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
 if DATABASE_URL:
     try:
-        # ── Strip PgBouncer-specific query params from the DSN ────────
-        # psycopg2 rejects ?pgbouncer=true because it is not a valid
-        # PostgreSQL connection option. We strip it out with a simple
-        # regex, then handle PgBouncer via Django settings instead.
-        clean_url = re.sub(r'[?&]pgbouncer=[^&]*', '', DATABASE_URL).rstrip('?&')
-        is_pgbouncer = 'pgbouncer' in DATABASE_URL.lower()
+        # ── Strip PgBouncer-specific query params ────────────────────
+        # psycopg2 rejects ?pgbouncer=true (not a valid PostgreSQL option)
+        # This is only used by Supabase pooler URLs.
+        clean_url = re.sub(r'[?&]pgbouncer=[^&]*', '', DATABASE_URL).rstrip('?&') or DATABASE_URL
 
-        # Ensure sslmode=require is present for Supabase
-        if 'sslmode' not in clean_url.lower():
-            clean_url += ('&' if '?' in clean_url else '?') + 'sslmode=require'
-
-        # ── Auto-detect & fix Supabase pooler port/username mismatch ────
-        # If URL uses pooler.supabase.com with user.project_ref format
-        # but port is 5432 (session mode), auto-correct to port 6543
-        # (transaction mode). Session mode expects project_ref.user.
-        parsed = urlparse(clean_url)
-        port = parsed.port
-        username = parsed.username or ''
-        hostname = parsed.hostname or ''
-        if 'pooler.supabase.com' in hostname and '.' in username and port == 5432:
-            new_port = 6543
-            # Replace port in netloc (preserves username:password@host part)
-            old_suffix = f':{port}'
-            if parsed.netloc.endswith(old_suffix):
-                new_netloc = parsed.netloc[:-len(old_suffix)] + f':{new_port}'
-            else:
-                new_netloc = parsed.netloc
-            clean_url = urlunparse((
-                parsed.scheme,
-                new_netloc,
-                parsed.path,
-                parsed.params,
-                parsed.query,
-                parsed.fragment
-            ))
-            print(f"[INFO] Auto-fixed Supabase port: {port} → {new_port} (user.project_ref format requires transaction pooler)")
-
-        # Let dj-database-url parse the cleaned connection string
-        # Note: parse() only accepts (url, engine) — conn_max_age and
-        # conn_health_checks must be set manually on the returned dict.
+        # ── Parse the connection string via dj-database-url ───────────
+        # dj-database-url handles PostgreSQL, MySQL, SQLite, etc.
+        # See: https://github.com/jazzband/dj-database-url
         db_config = dj_database_url.parse(clean_url)
 
-        # Apply connection-pool settings directly on the dict
-        db_config['CONN_MAX_AGE'] = 0 if is_pgbouncer else 600
+        # ── Connection pool settings ────────────────────────────────
+        # Keep persistent connections alive for 10 minutes,
+        # with health checks to detect stale connections.
+        db_config['CONN_MAX_AGE'] = 600
         db_config['CONN_HEALTH_CHECKS'] = True
 
-        # Force SSL mode for Supabase
+        # ── SSL & timeout ───────────────────────────────────────────
+        # Cloud databases (Supabase, Render, Neon) require SSL.
+        # Connection timeout prevents hanging if DB is paused.
         db_config.setdefault('OPTIONS', {})
         db_config['OPTIONS']['sslmode'] = 'require'
-
-        # Connection timeout (seconds) — fail fast when DB is unreachable/paused
-        # Default 10s. Set e.g. DB_CONNECT_TIMEOUT=5 for faster failures.
         db_config['OPTIONS']['connect_timeout'] = int(
             os.environ.get('DB_CONNECT_TIMEOUT', '10')
         )
 
         DATABASES = {'default': db_config}
 
-        if is_pgbouncer:
-            print("[INFO] PgBouncer mode detected — CONN_MAX_AGE set to 0 for pooler compatibility.")
         print(f"[INFO] Using database: {db_config['ENGINE']} — {db_config.get('HOST', 'local')}:{db_config.get('PORT', '')}")
 
     except Exception as e:
@@ -184,7 +150,7 @@ if DATABASE_URL:
             }
         }
 else:
-    print("[WARNING] DATABASE_URL not set. Using SQLite. Data will NOT persist across deploys! Set DATABASE_URL in Render Dashboard.")
+    print("[INFO] DATABASE_URL not set. Using SQLite for local development.")
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
