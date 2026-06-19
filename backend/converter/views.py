@@ -157,6 +157,7 @@ def generate_qr(request):
         return Response(response_data, status=status.HTTP_200_OK)
 
     except Exception as e:
+        logger.exception("QR generation failed")
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -230,9 +231,10 @@ def format_json_view(request):
         try:
             err_data = json.loads(str(e))
             return Response(err_data, status=status.HTTP_400_BAD_REQUEST)
-        except (_json.JSONDecodeError, TypeError):
+        except (json.JSONDecodeError, TypeError):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
+        logger.exception("JSON formatting failed")
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

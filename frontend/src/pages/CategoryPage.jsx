@@ -9,9 +9,11 @@ export default function CategoryPage() {
   const [category, setCategory] = useState(null);
   const [tools, setTools] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
 
     Promise.all([
       getCategories(),
@@ -21,9 +23,12 @@ export default function CategoryPage() {
         const cat = categories.find((c) => c.slug === slug);
         setCategory(cat);
         setTools(toolsData);
-        setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        console.error('Failed to load category:', err.message || err);
+        setError(err.message || 'Failed to load category data.');
+      })
+      .finally(() => setLoading(false));
   }, [slug]);
 
   if (loading) {
@@ -31,6 +36,15 @@ export default function CategoryPage() {
       <div className="max-w-7xl mx-auto px-4 py-20 text-center">
         <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4" />
         <p className="text-gray-500">Loading tools...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-20 text-center">
+        <p className="text-red-600 text-sm mb-2">{error}</p>
+        <Link to="/" className="text-indigo-600 hover:underline">Back to home</Link>
       </div>
     );
   }

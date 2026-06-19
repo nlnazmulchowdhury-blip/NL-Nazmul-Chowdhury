@@ -23,11 +23,15 @@ const colorMap = {
 export default function AdminDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     getAdminDashboard()
       .then(setData)
-      .catch(() => {})
+      .catch((err) => {
+        console.error('Failed to load dashboard:', err.message || err);
+        setError(err.message || 'Failed to load dashboard data.');
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -35,6 +39,21 @@ export default function AdminDashboard() {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 size={32} className="animate-spin text-indigo-500" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <XCircle size={32} className="text-red-400 mb-3" />
+        <p className="text-sm text-red-600 mb-2">{error}</p>
+        <button
+          onClick={() => { setError(null); setLoading(true); getAdminDashboard().then(setData).catch((err) => setError(err.message || 'Failed to load dashboard data.')).finally(() => setLoading(false)); }}
+          className="text-sm text-indigo-600 hover:underline"
+        >
+          Retry
+        </button>
       </div>
     );
   }

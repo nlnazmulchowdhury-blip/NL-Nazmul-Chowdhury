@@ -21,7 +21,10 @@ export default function SettingsPage() {
         setSettings(data.settings || {});
         setMeta(data.meta || {});
       })
-      .catch(() => setError('Failed to load settings'))
+      .catch((err) => {
+        console.error('Failed to load settings:', err.message || err);
+        setError(err.message || 'Failed to load settings.');
+      })
       .finally(() => setLoading(false));
   }, []);
 

@@ -35,7 +35,8 @@ export default function CategorySection({ category }) {
           setLoading(false);
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error(`Failed to load tools for category "${category.slug}":`, err.message || err);
         if (mounted) setLoading(false);
       });
 

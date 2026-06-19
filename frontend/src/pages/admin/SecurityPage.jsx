@@ -31,7 +31,10 @@ export default function SecurityPage() {
   const loadStatus = () => {
     get2FAStatus()
       .then(setStatus)
-      .catch(() => {})
+      .catch((err) => {
+        console.error('Failed to load 2FA status:', err.message || err);
+        setError(err.message || 'Failed to load security settings.');
+      })
       .finally(() => setLoading(false));
   };
 
