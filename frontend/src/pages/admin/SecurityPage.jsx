@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import {
-  Shield, Smartphone, KeyRound, Copy, Check, AlertCircle,
+  Shield, Smartphone, KeyRound, Copy, Check,
   Loader2, Download, RefreshCw, AlertTriangle
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { setup2FA, verify2FA, disable2FA, get2FAStatus, regenerateBackupCodes } from '../../api';
+import LoadingSpinner from '../../components/LoadingSpinner';
+import AlertMessage from '../../components/AlertMessage';
 
 export default function SecurityPage() {
   const { requires2FASetup } = useAuth();
@@ -122,11 +124,7 @@ export default function SecurityPage() {
   const isEnabled = status?.is_enabled;
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 size={24} className="animate-spin text-indigo-500" />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   return (
@@ -136,20 +134,8 @@ export default function SecurityPage() {
         <p className="text-gray-500 text-sm mt-1">Two-factor authentication settings</p>
       </div>
 
-      {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2.5">
-          <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
-          <p className="text-sm text-red-600">{error}</p>
-          <button onClick={() => setError('')} className="ml-auto text-red-400 hover:text-red-600"><span className="text-xs">✕</span></button>
-        </div>
-      )}
-
-      {success && (
-        <div className="mb-4 p-3 bg-green-50 border border-green-100 rounded-xl flex items-center gap-2.5">
-          <Check size={16} className="text-green-500" />
-          <p className="text-sm text-green-600">{success}</p>
-        </div>
-      )}
+      <AlertMessage type="error" message={error} onDismiss={() => setError('')} />
+      <AlertMessage type="success" message={success} />
 
       {/* Status Card */}
       <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">

@@ -1,48 +1,41 @@
-import { useState, useEffect } from 'react';
-import { Users, Shield, Calendar, Activity, Loader2, Search } from 'lucide-react';
+import { useState } from 'react';
+import { Users, Shield, Calendar, Activity, Search } from 'lucide-react';
 import { getAdminUsers } from '../../api';
+import LoadingSpinner from '../../components/LoadingSpinner';
+import AdminPageHeader from '../../components/AdminPageHeader';
+import useAsyncData from '../../hooks/useAsyncData';
 
 export default function UsersPage() {
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { data: users, loading } = useAsyncData(getAdminUsers);
   const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    getAdminUsers()
-      .then(setUsers)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  const filtered = users.filter(
+  const filtered = (users || []).filter(
     (u) => u.username.toLowerCase().includes(search.toLowerCase()) ||
            u.email.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Users</h1>
-          <p className="text-gray-500 text-sm mt-1">{users.length} registered users</p>
-        </div>
-        <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search users..."
-            className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 w-48"
-          />
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Users"
+        subtitle={`${(users || []).length} registered users`}
+        actions={
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search users..."
+              className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 w-48"
+            />
+          </div>
+        }
+      />
 
       <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 size={24} className="animate-spin text-indigo-500" />
-          </div>
+          <LoadingSpinner className="!py-16" />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

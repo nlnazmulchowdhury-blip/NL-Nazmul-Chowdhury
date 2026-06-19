@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
 import {
-  Plus, PenSquare, Trash2, Search, X, Check, AlertCircle, Loader2,
+  Plus, PenSquare, Trash2, Search,
   ToggleLeft, ToggleRight
 } from 'lucide-react';
 import { getAdminTools, getAdminCategories, createAdminTool, updateAdminTool, deleteAdminTool } from '../../api';
+import LoadingSpinner from '../../components/LoadingSpinner';
+import AlertMessage from '../../components/AlertMessage';
+import AdminModal from '../../components/AdminModal';
+import AdminPageHeader from '../../components/AdminPageHeader';
 
 export default function ToolsManager() {
   const [tools, setTools] = useState([]);
@@ -89,34 +93,32 @@ export default function ToolsManager() {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tools</h1>
-          <p className="text-gray-500 text-sm mt-1">{tools.length} tools total</p>
-        </div>
-        <div className="flex gap-3">
-          <div className="relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search tools..."
-              className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 w-48"
-            />
-          </div>
-          <button onClick={openCreate} className="btn-primary !py-2 !px-4 text-sm flex items-center gap-1.5">
-            <Plus size={16} /> Add Tool
-          </button>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Tools"
+        subtitle={`${tools.length} tools total`}
+        actions={
+          <>
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search tools..."
+                className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 w-48"
+              />
+            </div>
+            <button onClick={openCreate} className="btn-primary !py-2 !px-4 text-sm flex items-center gap-1.5">
+              <Plus size={16} /> Add Tool
+            </button>
+          </>
+        }
+      />
 
       {/* Table */}
       <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 size={24} className="animate-spin text-indigo-500" />
-          </div>
+          <LoadingSpinner className="!py-16" />
         ) : filtered.length === 0 ? (
           <div className="text-center py-16 text-gray-400">
             <WrenchIcon className="mx-auto mb-3" size={32} />
@@ -173,87 +175,64 @@ export default function ToolsManager() {
         )}
       </div>
 
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/40" onClick={() => setShowModal(false)} />
-          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 animate-in">
-            <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-              <X size={20} />
-            </button>
+      <AdminModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        title={editing ? 'Edit Tool' : 'Add New Tool'}
+        error={error}
+        saving={saving}
+        onSave={handleSave}
+        saveLabel={editing ? 'Update' : 'Create'}
+        maxWidth="max-w-lg"
+      >
+        <div>
+          <label className="text-xs font-medium text-gray-500 mb-1 block">Name</label>
+          <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+            placeholder="Tool name" />
+        </div>
 
-            <h2 className="text-lg font-bold text-gray-900 mb-5">
-              {editing ? 'Edit Tool' : 'Add New Tool'}
-            </h2>
+        <div>
+          <label className="text-xs font-medium text-gray-500 mb-1 block">Category</label>
+          <select value={form.category_slug} onChange={(e) => setForm({ ...form, category_slug: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
+            {categories.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
+          </select>
+        </div>
 
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2.5 mb-4">
-                <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
-                <p className="text-sm text-red-600">{error}</p>
-              </div>
-            )}
+        <div>
+          <label className="text-xs font-medium text-gray-500 mb-1 block">Description</label>
+          <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 resize-none"
+            rows={3} placeholder="Tool description" />
+        </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-medium text-gray-500 mb-1 block">Name</label>
-                <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-                  placeholder="Tool name" />
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-gray-500 mb-1 block">Category</label>
-                <select value={form.category_slug} onChange={(e) => setForm({ ...form, category_slug: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
-                  {categories.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-gray-500 mb-1 block">Description</label>
-                <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 resize-none"
-                  rows={3} placeholder="Tool description" />
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-gray-500 mb-1 block">Icon</label>
-                  <input type="text" value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400" placeholder="lucide-icon" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500 mb-1 block">Color</label>
-                  <input type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })}
-                    className="w-full h-[38px] px-1 py-1 border border-gray-200 rounded-lg cursor-pointer" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500 mb-1 block">Max (MB)</label>
-                  <input type="number" min="1" value={form.max_file_size_mb}
-                    onChange={(e) => setForm({ ...form, max_file_size_mb: parseInt(e.target.value) || 10 })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400" />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input type="checkbox" id="is_active" checked={form.is_active}
-                  onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
-                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                <label htmlFor="is_active" className="text-sm text-gray-600">Active</label>
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6 pt-4 border-t border-gray-100">
-              <button onClick={() => setShowModal(false)} className="btn-secondary !py-2 !px-4 text-sm flex-1">Cancel</button>
-              <button onClick={handleSave} disabled={saving}
-                className="btn-primary !py-2 !px-4 text-sm flex-1 flex items-center justify-center gap-1.5">
-                {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-                {editing ? 'Update' : 'Create'}
-              </button>
-            </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="text-xs font-medium text-gray-500 mb-1 block">Icon</label>
+            <input type="text" value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400" placeholder="lucide-icon" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500 mb-1 block">Color</label>
+            <input type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })}
+              className="w-full h-[38px] px-1 py-1 border border-gray-200 rounded-lg cursor-pointer" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500 mb-1 block">Max (MB)</label>
+            <input type="number" min="1" value={form.max_file_size_mb}
+              onChange={(e) => setForm({ ...form, max_file_size_mb: parseInt(e.target.value) || 10 })}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400" />
           </div>
         </div>
-      )}
+
+        <div className="flex items-center gap-2">
+          <input type="checkbox" id="is_active" checked={form.is_active}
+            onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+          <label htmlFor="is_active" className="text-sm text-gray-600">Active</label>
+        </div>
+      </AdminModal>
     </div>
   );
 }

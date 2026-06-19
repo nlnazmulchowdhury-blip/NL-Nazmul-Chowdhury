@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
 import {
-  Package, Plus, PenSquare, Trash2, X, Check, AlertCircle,
+  Package, Plus, PenSquare, Trash2,
   ToggleRight, ToggleLeft, Loader2
 } from 'lucide-react';
 import { getAdminCategories, createAdminCategory, updateAdminCategory, deleteAdminCategory } from '../../api';
+import LoadingSpinner from '../../components/LoadingSpinner';
+import AlertMessage from '../../components/AlertMessage';
+import AdminModal from '../../components/AdminModal';
+import AdminPageHeader from '../../components/AdminPageHeader';
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState([]);
@@ -78,30 +82,22 @@ export default function CategoriesPage() {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Categories</h1>
-          <p className="text-gray-500 text-sm mt-1">{categories.length} categories</p>
-        </div>
-        <button onClick={openCreate} className="btn-primary !py-2 !px-4 text-sm flex items-center gap-1.5 shrink-0">
-          <Plus size={16} /> Add Category
-        </button>
-      </div>
-
-      {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2.5">
-          <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
-          <p className="text-sm text-red-600">{error}</p>
-          <button onClick={() => setError('')} className="ml-auto text-red-400 hover:text-red-600">
-            <X size={16} />
+      <AdminPageHeader
+        title="Categories"
+        subtitle={`${categories.length} categories`}
+        actions={
+          <button onClick={openCreate} className="btn-primary !py-2 !px-4 text-sm flex items-center gap-1.5 shrink-0">
+            <Plus size={16} /> Add Category
           </button>
-        </div>
-      )}
+        }
+      />
+
+      <AlertMessage type="error" message={error} onDismiss={() => setError('')} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {loading ? (
-          <div className="col-span-full flex items-center justify-center py-16">
-            <Loader2 size={24} className="animate-spin text-indigo-500" />
+          <div className="col-span-full">
+            <LoadingSpinner className="!py-16" />
           </div>
         ) : (
           categories.map((cat) => (
@@ -154,72 +150,55 @@ export default function CategoriesPage() {
         )}
       </div>
 
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/40" onClick={() => setShowModal(false)} />
-          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-              <X size={20} />
-            </button>
+      <AdminModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        title={editing ? 'Edit Category' : 'Add New Category'}
+        error={error}
+        saving={saving}
+        onSave={handleSave}
+        saveLabel={editing ? 'Update' : 'Create'}
+      >
+        <div>
+          <label className="text-xs font-medium text-gray-500 mb-1 block">Name *</label>
+          <input type="text" value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+            placeholder="Category name" autoFocus />
+        </div>
 
-            <h2 className="text-lg font-bold text-gray-900 mb-5">
-              {editing ? 'Edit Category' : 'Add New Category'}
-            </h2>
+        <div>
+          <label className="text-xs font-medium text-gray-500 mb-1 block">Description</label>
+          <textarea value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 resize-none"
+            rows={3} placeholder="Brief description" />
+        </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-medium text-gray-500 mb-1 block">Name *</label>
-                <input type="text" value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-                  placeholder="Category name" autoFocus />
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-gray-500 mb-1 block">Description</label>
-                <textarea value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 resize-none"
-                  rows={3} placeholder="Brief description" />
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-gray-500 mb-1 block">Icon</label>
-                  <input type="text" value={form.icon}
-                    onChange={(e) => setForm({ ...form, icon: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400"
-                    placeholder="lucide-icon" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-500 mb-1 block">Order</label>
-                  <input type="number" min="0" value={form.order}
-                    onChange={(e) => setForm({ ...form, order: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400" />
-                </div>
-                <div className="flex items-end pb-2">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={form.is_active}
-                      onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
-                      className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                    <span className="text-sm text-gray-600">Active</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6 pt-4 border-t border-gray-100">
-              <button onClick={() => setShowModal(false)} className="btn-secondary !py-2 !px-4 text-sm flex-1">Cancel</button>
-              <button onClick={handleSave} disabled={saving}
-                className="btn-primary !py-2 !px-4 text-sm flex-1 flex items-center justify-center gap-1.5">
-                {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-                {editing ? 'Update' : 'Create'}
-              </button>
-            </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="text-xs font-medium text-gray-500 mb-1 block">Icon</label>
+            <input type="text" value={form.icon}
+              onChange={(e) => setForm({ ...form, icon: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400"
+              placeholder="lucide-icon" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500 mb-1 block">Order</label>
+            <input type="number" min="0" value={form.order}
+              onChange={(e) => setForm({ ...form, order: parseInt(e.target.value) || 0 })}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-400" />
+          </div>
+          <div className="flex items-end pb-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={form.is_active}
+                onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+              <span className="text-sm text-gray-600">Active</span>
+            </label>
           </div>
         </div>
-      )}
+      </AdminModal>
     </div>
   );
 }

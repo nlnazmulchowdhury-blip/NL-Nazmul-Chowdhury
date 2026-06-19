@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { getCategories, getTools } from '../api';
 import ToolCard from '../components/ToolCard';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function CategoryPage() {
   const { slug } = useParams();
@@ -28,9 +29,8 @@ export default function CategoryPage() {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-20 text-center">
-        <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-gray-500">Loading tools...</p>
+      <div className="max-w-7xl mx-auto px-4">
+        <LoadingSpinner message="Loading tools..." />
       </div>
     );
   }

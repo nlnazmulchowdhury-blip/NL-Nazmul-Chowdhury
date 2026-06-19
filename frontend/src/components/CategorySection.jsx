@@ -1,24 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import * as Icons from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import ToolCard from './ToolCard';
 import { getTools } from '../api';
-
-const iconCache = {};
-
-function toPascalCase(str) {
-  return str.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('');
-}
-
-function getIcon(iconName, size = 24) {
-  const key = `${iconName}-${size}`;
-  if (!iconCache[key]) {
-    const pascalName = toPascalCase(iconName);
-    const Icon = Icons[pascalName];
-    iconCache[key] = Icon || Icons.Package;
-  }
-  return iconCache[key];
-}
+import { getIcon } from '../utils/iconUtils';
+import { Package } from 'lucide-react';
 
 export default function CategorySection({ category }) {
   const [tools, setTools] = useState([]);
@@ -42,7 +28,7 @@ export default function CategorySection({ category }) {
     return () => { mounted = false; };
   }, [category.slug]);
 
-  const Icon = getIcon(category.icon);
+  const Icon = getIcon(category.icon, Package);
   const displayCount = tools.length;
 
   if (displayCount === 0 && !loading) return null;
@@ -65,7 +51,7 @@ export default function CategorySection({ category }) {
           className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 transition-colors"
         >
           View all
-          <Icons.ArrowRight size={14} />
+          <ArrowRight size={14} />
         </Link>
       </div>
 

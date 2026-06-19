@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getTools, getCategories } from '../api';
 import ToolCard from '../components/ToolCard';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function AllToolsPage() {
   const [tools, setTools] = useState([]);
@@ -57,9 +58,7 @@ export default function AllToolsPage() {
       </div>
 
       {loading ? (
-        <div className="text-center py-20">
-          <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto" />
-        </div>
+        <LoadingSpinner />
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {filtered.map((tool, i) => (

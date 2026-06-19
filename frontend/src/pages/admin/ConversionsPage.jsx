@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { History, Download, Filter, CheckCircle, XCircle, Clock, Loader2, AlertCircle } from 'lucide-react';
 import { getAdminConversions } from '../../api';
+import LoadingSpinner from '../../components/LoadingSpinner';
+import AdminPageHeader from '../../components/AdminPageHeader';
 
 const statusConfig = {
   completed: { icon: CheckCircle, bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-200' },
@@ -38,12 +40,10 @@ export default function ConversionsPage() {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Conversion History</h1>
-          <p className="text-gray-500 text-sm mt-1">{conversions.length} records</p>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Conversion History"
+        subtitle={`${conversions.length} records`}
+      />
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-6">
@@ -75,9 +75,7 @@ export default function ConversionsPage() {
       {/* List */}
       <div className="space-y-2">
         {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 size={24} className="animate-spin text-indigo-500" />
-          </div>
+          <LoadingSpinner className="!py-16" />
         ) : conversions.length === 0 ? (
           <div className="text-center py-16 text-gray-400">
             <History size={32} className="mx-auto mb-3" />

@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Wrench, Layers, Repeat, Users as UsersIcon, TrendingUp,
   Clock, CheckCircle, XCircle, Loader2
 } from 'lucide-react';
 import { getAdminDashboard } from '../../api';
+import LoadingSpinner from '../../components/LoadingSpinner';
+import useAsyncData from '../../hooks/useAsyncData';
 
 const iconMap = {
   tools: Wrench,
@@ -21,22 +22,10 @@ const colorMap = {
 };
 
 export default function AdminDashboard() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    getAdminDashboard()
-      .then(setData)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+  const { data, loading } = useAsyncData(getAdminDashboard);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 size={32} className="animate-spin text-indigo-500" />
-      </div>
-    );
+    return <LoadingSpinner size={32} />;
   }
 
   const totals = [

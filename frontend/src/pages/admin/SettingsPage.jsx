@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import {
-  Settings, Save, Loader2, CheckCircle2, AlertCircle, Eye, EyeOff
+  Settings, Save, Loader2, Eye, EyeOff
 } from 'lucide-react';
 import { getAdminSettings, updateAdminSettings } from '../../api';
+import LoadingSpinner from '../../components/LoadingSpinner';
+import AlertMessage from '../../components/AlertMessage';
 
 const sensitiveKeys = ['google_analytics_id', 'adsense_publisher_id'];
 
@@ -154,11 +156,7 @@ export default function SettingsPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 size={24} className="animate-spin text-indigo-500" />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   const keys = Object.keys(meta);
@@ -172,19 +170,8 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2.5">
-          <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
-          <p className="text-sm text-red-600">{error}</p>
-        </div>
-      )}
-
-      {success && (
-        <div className="mb-4 p-3 bg-green-50 border border-green-100 rounded-xl flex items-center gap-2.5">
-          <CheckCircle2 size={16} className="text-green-500" />
-          <p className="text-sm text-green-600">{success}</p>
-        </div>
-      )}
+      <AlertMessage type="error" message={error} />
+      <AlertMessage type="success" message={success} />
 
       <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
         <div className="p-6 space-y-6">

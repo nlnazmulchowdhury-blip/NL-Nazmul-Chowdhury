@@ -1,21 +1,5 @@
 import { Link } from 'react-router-dom';
-import * as Icons from 'lucide-react';
-
-const iconCache = {};
-
-function toPascalCase(str) {
-  return str.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('');
-}
-
-function getIcon(iconName, size = 24) {
-  const key = `${iconName}-${size}`;
-  if (!iconCache[key]) {
-    const pascalName = toPascalCase(iconName);
-    const Icon = Icons[pascalName];
-    iconCache[key] = Icon || Icons.Wrench;
-  }
-  return iconCache[key];
-}
+import { getIcon } from '../utils/iconUtils';
 
 export default function ToolCard({ tool, index = 0 }) {
   const Icon = getIcon(tool.icon);
