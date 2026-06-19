@@ -19,9 +19,13 @@ export default function CategoriesPage() {
 
   const load = () => {
     setLoading(true);
+    setError('');
     getAdminCategories()
       .then(setCategories)
-      .catch(() => {})
+      .catch((err) => {
+        console.error('Failed to load categories:', err.message || err);
+        setError(err.message || 'Failed to load categories.');
+      })
       .finally(() => setLoading(false));
   };
 

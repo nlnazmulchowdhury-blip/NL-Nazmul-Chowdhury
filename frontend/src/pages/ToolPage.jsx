@@ -529,9 +529,10 @@ export default function ToolPage() {
         setTool(data);
         setLoading(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error(`Failed to load tool "${slug}":`, err.message || err);
         setLoading(false);
-        setError('Tool not found');
+        setError(err.status === 404 ? 'Tool not found' : (err.message || 'Failed to load tool'));
       });
   }, [slug]);
 

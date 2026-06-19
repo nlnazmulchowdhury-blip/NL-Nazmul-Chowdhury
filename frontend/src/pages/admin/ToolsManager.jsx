@@ -21,9 +21,13 @@ export default function ToolsManager() {
 
   const load = () => {
     setLoading(true);
+    setError('');
     Promise.all([getAdminTools(), getAdminCategories()])
       .then(([t, c]) => { setTools(t); setCategories(c); })
-      .catch(() => {})
+      .catch((err) => {
+        console.error('Failed to load tools:', err.message || err);
+        setError(err.message || 'Failed to load tools and categories.');
+      })
       .finally(() => setLoading(false));
   };
 
@@ -79,7 +83,10 @@ export default function ToolsManager() {
     try {
       await updateAdminTool(tool.id, { ...tool, is_active: !tool.is_active });
       load();
-    } catch {}
+    } catch (err) {
+      console.error('Failed to toggle tool status:', err.message || err);
+      setError(err.message || 'Failed to update tool status.');
+    }
   };
 
   const filtered = tools.filter(

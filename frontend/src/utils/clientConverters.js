@@ -52,7 +52,8 @@ export function preloadPDFjs() {
     .then(() => {
       notifyPDFjsStatus('loaded');
     })
-    .catch(() => {
+    .catch((err) => {
+      console.warn('PDF.js worker preload failed:', err.message || err);
       notifyPDFjsStatus('error');
     });
 }
@@ -141,11 +142,13 @@ async function getFFmpeg() {
         wasmResp.arrayBuffer(),
       ]);
 
-      // Store in IndexedDB (fire-and-forget on caching)
+      // Store in IndexedDB (non-critical; log but don't block on failure)
       Promise.all([
         cachePut(CACHE_KEY_JS, jsBuf),
         cachePut(CACHE_KEY_WASM, wasmBuf),
-      ]).catch(() => {});
+      ]).catch((err) => {
+        console.warn('FFmpeg cache write failed:', err.message || err);
+      });
 
       coreJSBlob = new Blob([jsBuf], { type: 'application/javascript' });
       coreWasmBlob = new Blob([wasmBuf], { type: 'application/wasm' });

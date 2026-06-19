@@ -7,15 +7,19 @@ export default function AllToolsPage() {
   const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     Promise.all([getTools(), getCategories()])
       .then(([toolsData, catData]) => {
         setTools(toolsData);
         setCategories(catData);
-        setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        console.error('Failed to load tools:', err.message || err);
+        setError(err.message || 'Failed to load tools. Please try again.');
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const filtered = activeCategory === 'all'
@@ -55,6 +59,13 @@ export default function AllToolsPage() {
           </button>
         ))}
       </div>
+
+      {error && (
+        <div className="text-center py-12">
+          <p className="text-red-600 text-sm mb-2">{error}</p>
+          <button onClick={() => window.location.reload()} className="text-sm text-indigo-600 hover:underline">Retry</button>
+        </div>
+      )}
 
       {loading ? (
         <div className="text-center py-20">

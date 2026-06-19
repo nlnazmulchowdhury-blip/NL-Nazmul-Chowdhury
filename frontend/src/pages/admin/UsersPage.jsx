@@ -5,12 +5,16 @@ import { getAdminUsers } from '../../api';
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
     getAdminUsers()
       .then(setUsers)
-      .catch(() => {})
+      .catch((err) => {
+        console.error('Failed to load users:', err.message || err);
+        setError(err.message || 'Failed to load users.');
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -37,6 +41,13 @@ export default function UsersPage() {
           />
         </div>
       </div>
+
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2.5">
+          <span className="text-red-500 text-sm">&#9888;</span>
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
         {loading ? (

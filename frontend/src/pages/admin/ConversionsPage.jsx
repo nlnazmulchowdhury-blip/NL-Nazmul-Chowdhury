@@ -12,18 +12,23 @@ const statusConfig = {
 export default function ConversionsPage() {
   const [conversions, setConversions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [statusFilter, setStatusFilter] = useState('');
   const [toolFilter, setToolFilter] = useState('');
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     const params = {};
     if (statusFilter) params.status = statusFilter;
     if (toolFilter) params.tool = toolFilter;
 
     getAdminConversions(params)
       .then(setConversions)
-      .catch(() => {})
+      .catch((err) => {
+        console.error('Failed to load conversions:', err.message || err);
+        setError(err.message || 'Failed to load conversion history.');
+      })
       .finally(() => setLoading(false));
   }, [statusFilter, toolFilter]);
 
@@ -71,6 +76,13 @@ export default function ConversionsPage() {
           </div>
         )}
       </div>
+
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2.5">
+          <AlertCircle size={16} className="text-red-500 shrink-0" />
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
 
       {/* List */}
       <div className="space-y-2">
